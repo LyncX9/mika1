@@ -10,7 +10,7 @@ from keep_alive import keep_alive
 from dotenv import load_dotenv
 from trending_fetcher import VIRAL_TOPICS, start_trending_loop
 import sys
-
+sys.modules["audioop"] = __import__("fake_audioop")
 print("🔍 Python version:", sys.version)
 
 # ===============================
@@ -138,3 +138,4 @@ async def on_message(message):
 # ===============================
 keep_alive()
 bot.run(BOT_TOKEN)
+
