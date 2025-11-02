@@ -10,7 +10,6 @@ from keep_alive import keep_alive
 from dotenv import load_dotenv
 from trending_fetcher import VIRAL_TOPICS, start_trending_loop
 import sys
-import time
 
 print("🔍 Python version:", sys.version)
 
@@ -18,7 +17,6 @@ print("🔍 Python version:", sys.version)
 # 1️⃣ Load Environment Variables
 # ===============================
 load_dotenv()
-
 openai.api_key = os.getenv("OPENAI_API_KEY")
 BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 
@@ -32,6 +30,7 @@ intents = discord.Intents.default()
 intents.message_content = True
 intents.messages = True
 intents.guilds = True
+
 bot = discord.Client(intents=intents)
 
 AI_NAME = "Mika"
@@ -87,20 +86,20 @@ async def generate_ai_response(user_id, user_message):
     mood = MOOD_STATE["state"]
     personality_prompt = f"{AI_PERSONALITY}\nSaat ini mood kamu: {mood}."
 
+    history = memory.load_memory_variables({}).get("history", "")
     memory.chat_memory.add_user_message(user_message)
 
     response = openai.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
             {"role": "system", "content": personality_prompt},
-            {"role": "user", "content": memory.load_memory_variables({})["history"] + "\nUser: " + user_message}
+            {"role": "user", "content": f"{history}\nUser: {user_message}"}
         ],
         temperature=0.9
     )
 
     reply = response.choices[0].message.content
     memory.chat_memory.add_ai_message(reply)
-
     user_memory[str(user_id)] = memory.load_memory_variables({})
     save_memory(user_memory)
 
@@ -119,31 +118,27 @@ async def on_message(message):
     if message.author == bot.user:
         return
 
-    text = message.content.lower()
-    analyze_mood(text)
+    try:
+        text = message.content.lower()
+        analyze_mood(text)
+        viral_hit = [topic for topic in VIRAL_TOPICS if topic in text]
+        trigger = any(word in text for word in TRIGGER_KEYWORDS)
+        random_talk = random.random() < 0.07  
 
-    viral_hit = [topic for topic in VIRAL_TOPICS if topic in text]
-    trigger = any(word in text for word in TRIGGER_KEYWORDS)
-    random_talk = random.random() < 0.07  
-
-    if trigger or random_talk or viral_hit:
-        await human_delay()
-        context_text = message.content
-        if viral_hit:
-            context_text += f"\nNgomong-ngomong soal {random.choice(viral_hit)}, lagi viral banget tuh!"
-        reply = await generate_ai_response(message.author.id, context_text)
-        if random.random() < 0.25:
-            reply += random.choice([" 😂", " 😅", " 😎", " 🔥"])
-        await message.channel.send(reply)
+        if trigger or random_talk or viral_hit:
+            await human_delay()
+            context_text = message.content
+            if viral_hit:
+                context_text += f"\nNgomong-ngomong soal {random.choice(viral_hit)}, lagi viral banget tuh!"
+            reply = await generate_ai_response(message.author.id, context_text)
+            if random.random() < 0.25:
+                reply += random.choice([" 😂", " 😅", " 😎", " 🔥"])
+            await message.channel.send(reply)
+    except Exception as e:
+        print(f"⚠️ Error di on_message: {e}")
 
 # ===============================
 # 4️⃣ Run Flask KeepAlive & Bot
 # ===============================
 keep_alive()
 bot.run(BOT_TOKEN)
-
-
-
-
-
-
